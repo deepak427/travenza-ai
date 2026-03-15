@@ -138,20 +138,21 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
     token_data = valid_tokens.pop(token)
     guide_id = token_data.get("guide_id", DEFAULT_GUIDE)
     
-    setup_config = None
-    try:
-        msg = await websocket.receive_text()
-        data = json.loads(msg)
-        if "setup" in data:
-            setup_config = data["setup"]
-    except Exception:
-        pass
-
     audio_input_queue: asyncio.Queue = asyncio.Queue()
     text_input_queue: asyncio.Queue = asyncio.Queue()
+    setup_event: asyncio.Event = asyncio.Event()
+    setup_config: Optional[dict] = None
+
+    ws_lock = asyncio.Lock()
 
     async def audio_output_callback(data: bytes):
-        await websocket.send_bytes(data)
+        try:
+            async with ws_lock:
+                await websocket.send_bytes(data)
+            if len(data) > 0:
+                logger.debug(f"Sent {len(data)} audio bytes to client")
+        except Exception as e:
+            logger.error(f"Error sending audio: {e}")
 
     gemini = GeminiLive(
         project_id=PROJECT_ID,
@@ -161,19 +162,34 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
     )
 
     async def receive_from_client():
+        nonlocal setup_config
         try:
             while True:
                 message = await websocket.receive()
-                if "bytes" in message and message["bytes"]:
+                if "text" in message and message["text"]:
+                    data = json.loads(message["text"])
+                    if "setup" in data:
+                        setup_config = data["setup"]
+                        setup_event.set()
+                    else:
+                        await text_input_queue.put(message["text"])
+                elif "bytes" in message and message["bytes"]:
                     await audio_input_queue.put(message["bytes"])
-                elif "text" in message and message["text"]:
-                    await text_input_queue.put(message["text"])
+                elif "type" in message and message["type"] == "websocket.disconnect":
+                    break
         except (WebSocketDisconnect, asyncio.CancelledError):
             pass
+        finally:
+            setup_event.set()
 
     receive_task = asyncio.create_task(receive_from_client())
 
     async def run_session():
+        try:
+            await asyncio.wait_for(setup_event.wait(), timeout=5.0)
+        except asyncio.TimeoutError:
+            logger.warning("No setup message received, using defaults")
+
         async for event in gemini.start_session(
             audio_input_queue=audio_input_queue,
             text_input_queue=text_input_queue,
@@ -181,7 +197,8 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
             setup_config=setup_config
         ):
             if event:
-                await websocket.send_json(event)
+                async with ws_lock:
+                    await websocket.send_json(event)
 
     try:
         await asyncio.wait_for(run_session(), timeout=SESSION_TIME_LIMIT)

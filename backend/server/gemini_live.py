@@ -4,6 +4,7 @@ import asyncio
 import inspect
 import logging
 import json
+import os
 from typing import Optional, Callable, Dict, Any
 
 logger = logging.getLogger(__name__)
@@ -15,9 +16,17 @@ class GeminiLive:
         self.location = location
         self.model = model
         self.input_sample_rate = input_sample_rate
-        self.client = genai.Client(vertexai=True, project=project_id, location=location)
+        
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if api_key:
+            logger.info("Using Gemini API Key for authentication")
+            self.client = genai.Client(api_key=api_key)
+        else:
+            logger.info("Using Vertex AI (ADC) for authentication")
+            self.client = genai.Client(vertexai=True, project=project_id, location=location)
+            
         self.tool_mapping: Dict[str, Callable] = {}
-        logger.info(f"GeminiLive initialized | model={model} | project={project_id} | location={location}")
+        logger.info(f"GeminiLive initialized | model={model}")
 
     def register_tool(self, func: Callable):
         self.tool_mapping[func.__name__] = func

@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Travenza AI — High Performance Guide</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0b0c10;
+            --surface: rgba(31, 40, 51, 0.7);
+            --border: rgba(102, 252, 241, 0.3);
+            --accent: #66fcf1;
+            --accent-dim: #45a29e;
+            --text-main: #c5c6c7;
+            --text-bright: #ffffff;
+            --danger: #ff4d4d;
+            --font: 'Outfit', sans-serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(102, 252, 241, 0.08) 0%, transparent 45%),
+                radial-gradient(circle at 85% 85%, rgba(69, 162, 158, 0.08) 0%, transparent 45%);
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 500px;
+            background: var(--surface);
+            backdrop-filter: blur(25px);
+            border: 1px solid var(--border);
+            border-radius: 40px;
+            padding: 40px;
+            box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.7);
+            position: relative;
+            overflow: hidden;
+        }
+
+        header { text-align: center; margin-bottom: 35px; }
+        h1 { color: var(--text-bright); font-size: 2.2rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 4px; }
+        .subtitle { font-size: 0.95rem; color: var(--accent-dim); font-weight: 300; }
+
+        .status-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 30px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; background: #1f2833; transition: 0.5s; }
+        .dot.active { background: var(--accent); box-shadow: 0 0 15px var(--accent); animation: pulse-glow 2s infinite; }
+        @keyframes pulse-glow { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.1); } 100% { opacity: 1; transform: scale(1); } }
+
+        .control-group { margin-bottom: 25px; }
+        label { display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--accent-dim); margin-bottom: 10px; margin-left: 5px; }
+        
+        select {
+            width: 100%; background: rgba(11, 12, 16, 0.8); border: 1px solid var(--border); border-radius: 16px;
+            padding: 16px; color: var(--text-bright); font-family: var(--font); font-size: 1rem; outline: none; transition: 0.3s;
+            cursor: pointer; -webkit-appearance: none;
+        }
+        select:focus { border-color: var(--accent); }
+
+        button {
+            width: 100%; padding: 18px; border-radius: 20px; border: none; font-weight: 800; font-family: var(--font); cursor: pointer; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); font-size: 1.1rem;
+        }
+        .btn-primary { 
+            background: var(--accent); color: #0b0c10; 
+            box-shadow: 0 10px 30px rgba(102, 252, 241, 0.3);
+        }
+        .btn-primary:hover:not(:disabled) { transform: translateY(-4px); box-shadow: 0 15px 40px rgba(102, 252, 241, 0.5); }
+        .btn-primary:disabled { opacity: 0.4; cursor: wait; }
+
+        .btn-danger { 
+            background: rgba(255, 77, 77, 0.1); color: var(--danger); 
+            border: 1px solid rgba(255, 77, 77, 0.2); margin-top: 15px; display: none; 
+        }
+        .btn-danger:hover { background: rgba(255, 77, 77, 0.2); }
+
+        .visualizer-box {
+            height: 120px;
+            width: 100%;
+            margin-top: 30px;
+            position: relative;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 24px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        canvas { width: 100%; height: 100%; display: block; }
+
+        .transcript {
+            margin-top: 30px; height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;
+            padding-right: 10px; border-top: 1px solid var(--border); padding-top: 25px;
+        }
+        .transcript::-webkit-scrollbar { width: 4px; }
+        .transcript::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+        .msg { padding: 12px 18px; border-radius: 20px; font-size: 0.95rem; line-height: 1.5; max-width: 85%; animation: slide-in 0.4s ease-out; }
+        @keyframes slide-in { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+        .msg-ai { background: rgba(255, 255, 255, 0.08); align-self: flex-start; border-bottom-left-radius: 4px; color: var(--text-bright); }
+        .msg-user { background: var(--accent); color: #0b0c10; align-self: flex-end; border-bottom-right-radius: 4px; font-weight: 600; }
+        .msg-sys { font-size: 0.8rem; text-align: center; color: var(--accent-dim); opacity: 0.6; align-self: center; background: none; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <header>
+            <h1>Travenza AI</h1>
+            <div class="subtitle">Next-Gen Real-Time Audio Guide</div>
+        </header>
+
+        <div class="status-bar">
+            <div class="dot" id="statusDot"></div>
+            <span id="statusText">Ready to start</span>
+        </div>
+
+        <div class="control-group">
+            <label>Select Your Expert</label>
+            <select id="guideSelect"><option value="">Loading experts...</option></select>
+        </div>
+
+        <button id="btnStart" class="btn-primary">Initialize Session</button>
+        <button id="btnStop" class="btn-danger">Terminate Session</button>
+
+        <div class="visualizer-box">
+            <canvas id="visualizer"></canvas>
+        </div>
+
+        <div class="transcript" id="transcript">
+            <div class="msg msg-sys">Select a guide and click start to begin your journey.</div>
+        </div>
+    </div>
+
+<script type="module">
+    import { AudioStreamer, AudioPlayer } from '/static/js/mediaUtils.js';
+
+    const btnStart = document.getElementById('btnStart');
+    const btnStop = document.getElementById('btnStop');
+    const guideSelect = document.getElementById('guideSelect');
+    const transcript = document.getElementById('transcript');
+    const statusText = document.getElementById('statusText');
+    const statusDot = document.getElementById('statusDot');
+    const canvas = document.getElementById('visualizer');
+    const ctx = canvas.getContext('2d');
+
+    let websocket = null;
+    let streamer = null;
+    let player = null;
+    let guides = {};
+    let analyser = null;
+    let animationId = null;
+    let points = new Array(30).fill(0);
+
+    function addLog(text, type = 'sys') {
+        const div = document.createElement('div');
+        div.className = `msg msg-${type}`;
+        div.textContent = text;
+        transcript.appendChild(div);
+        transcript.scrollTop = transcript.scrollHeight;
+    }
+
+    async function fetchGuides() {
+        try {
+            const res = await fetch('/api/guides');
+            guides = await res.json();
+            guideSelect.innerHTML = '';
+            Object.entries(guides).forEach(([id, g]) => {
+                const opt = document.createElement('option');
+                opt.value = id;
+                opt.textContent = `${g.name} — ${g.description}`;
+                guideSelect.appendChild(opt);
+            });
+        } catch (e) { addLog('Backend unreachable.', 'sys'); }
+    }
+    fetchGuides();
+
+    function draw() {
+        animationId = requestAnimationFrame(draw);
+        if (!analyser) return;
+
+        canvas.width = canvas.offsetWidth * devicePixelRatio;
+        canvas.height = canvas.offsetHeight * devicePixelRatio;
+        ctx.scale(devicePixelRatio, devicePixelRatio);
+
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        analyser.getByteTimeDomainData(dataArray);
+
+        const width = canvas.width / devicePixelRatio;
+        const height = canvas.height / devicePixelRatio;
+        
+        ctx.clearRect(0, 0, width, height);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#66fcf1';
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+
+        const pointsCount = points.length;
+        const sliceWidth = width / (pointsCount - 1);
+        const bufferStep = Math.floor(dataArray.length / pointsCount);
+
+        for (let i = 0; i < pointsCount; i++) {
+            const audioIdx = Math.min(i * bufferStep, dataArray.length - 1);
+            const val = (dataArray[audioIdx] / 128.0) - 1.0;
+            const window = Math.sin((i / (pointsCount - 1)) * Math.PI);
+            const targetY = val * (height * 0.45) * 12.0 * window; 
+            
+            points[i] += (targetY - points[i]) * 0.4; // Lerping for smoothness
+        }
+
+        ctx.moveTo(0, height / 2);
+        for (let i = 0; i < pointsCount; i++) {
+            const x = i * sliceWidth;
+            const y = (height / 2) + points[i];
+
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                const prevX = (i - 1) * sliceWidth;
+                const prevY = (height / 2) + points[i - 1];
+                const cx = (prevX + x) / 2;
+                const cy = (prevY + y) / 2;
+                ctx.quadraticCurveTo(prevX, prevY, cx, cy);
+            }
+        }
+        ctx.lineTo(width, height / 2);
+        ctx.stroke();
+    }
+
+    btnStart.addEventListener('click', async () => {
+        btnStart.disabled = true;
+        statusText.textContent = 'Booting...';
+        
+        try {
+            const authRes = await fetch('/api/auth', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ guide_id: guideSelect.value })
+            });
+            const { session_token, guide } = await authRes.json();
+
+            streamer = new AudioStreamer();
+            player = new AudioPlayer();
+            
+            const playbackNode = await player.init();
+            const mediaContext = player.audioContext;
+            
+            analyser = mediaContext.createAnalyser();
+            analyser.fftSize = 2048;
+            playbackNode.connect(analyser); // Connect AI voice to visualizer
+
+            const micSourceNode = await streamer.start((pcmBuffer) => {
+                if (websocket?.readyState === WebSocket.OPEN) websocket.send(pcmBuffer);
+            });
+
+            // Connect Mic to the SAME analyser (Cross-context might fail, let's fix if needed)
+            // Actually, we use the player's context for visualization to keep it simple.
+            // But mic has its own context. So we just visualize BOTH if possible.
+            // Simplified: Connect mic stream to player's context via createMediaStreamSource
+            const micVisualNode = mediaContext.createMediaStreamSource(streamer.stream);
+            micVisualNode.connect(analyser);
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws?token=${session_token}`;
+            websocket = new WebSocket(wsUrl);
+            websocket.binaryType = 'arraybuffer';
+
+            websocket.onopen = () => {
+                statusText.textContent = `${guide.name.toUpperCase()} ACTIVE`;
+                statusDot.classList.add('active');
+                btnStart.style.display = 'none';
+                btnStop.style.display = 'block';
+                addLog(`Channel established with ${guide.name}.`, 'sys');
+
+                const setupMessage = {
+                    setup: {
+                        generation_config: {
+                            speech_config: {
+                                voice_config: { prebuilt_voice_config: { voice_name: guides[guideSelect.value].voice } }
+                            },
+                            temperature: 0.8
+                        },
+                        system_instruction: {
+                            parts: [{ text: `You are ${guide.name}, a traveler's best friend. Be helpful, concise, and proactive. You are using a high-fidelity voice interface.` }]
+                        },
+                        proactivity: { proactiveAudio: true },
+                        input_audio_transcription: true,
+                        output_audio_transcription: true
+                    }
+                };
+                websocket.send(JSON.stringify(setupMessage));
+                draw();
+            };
+
+            websocket.onmessage = (e) => {
+                if (e.data instanceof ArrayBuffer) {
+                    player.play(e.data);
+                } else {
+                    const data = JSON.parse(e.data);
+                    if (data.serverContent?.inputTranscription?.text) addLog(data.serverContent.inputTranscription.text, 'user');
+                    if (data.serverContent?.outputTranscription?.text) addLog(data.serverContent.outputTranscription.text, 'ai');
+                    if (data.serverContent?.interrupted) {
+                        player.interrupt();
+                        console.log("Interruption signal handled.");
+                    }
+                }
+            };
+
+            websocket.onclose = () => cleanup();
+            websocket.onerror = (err) => { cleanup(); addLog('Error: Connection failed.', 'sys'); };
+
+        } catch (err) {
+            cleanup();
+            addLog(`Error: ${err.message}`, 'sys');
+        }
+    });
+
+    btnStop.addEventListener('click', () => { websocket?.close(); cleanup(); });
+
+    function cleanup() {
+        cancelAnimationFrame(animationId);
+        websocket = null;
+        streamer?.stop();
+        player?.stop();
+        btnStart.disabled = false;
+        btnStart.style.display = 'block';
+        btnStop.style.display = 'none';
+        statusText.textContent = 'READY';
+        statusDot.classList.remove('active');
+        points.fill(0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+</script>
+</body>
+</html>
